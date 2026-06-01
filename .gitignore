@@ -1,0 +1,24 @@
+.DS_Store
+
+# Python cache/build artifacts
+__pycache__/
+*.py[cod]
+*.pyo
+*.so
+.pytest_cache/
+.mypy_cache/
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Local analysis output
+analysis_output/
+
+# UX tracker runtime files
+ux-tracker/ux_tracker.csv
+ux-tracker/ux_tracker_settings.json
+
+# Alternative runtime location used by local tests
+ux-tracker/data/
