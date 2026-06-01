@@ -1,12 +1,10 @@
 import csv
-import math
 import os
 import shutil
 from datetime import datetime
 
 from qgis.PyQt.QtCore import QEvent, QObject, QTimer
-from qgis.PyQt.QtGui import QCursor
-from qgis.PyQt.QtWidgets import QAction, QDockWidget, QFileDialog, QMessageBox, QToolBar
+from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox, QToolBar
 
 from .settings_dialog import SettingsDialog, load_settings, save_settings
 
@@ -27,14 +25,11 @@ class UXTracker(QObject):
 
         self._settings = load_settings(self.settings_path)
         self._tracked_actions: set = set()
-        self._tracked_docks: set = set()
         self._csv_file = None
         self._csv_writer = None
         self._recording = False
         self._settings_action: QAction = None
         self._export_action: QAction = None
-        self._last_event_time: datetime = None
-        self._last_cursor_pos = None  # QPoint (global screen coords)
 
     # ------------------------------------------------------------------
     # Plugin lifecycle
@@ -88,15 +83,8 @@ class UXTracker(QObject):
             self._csv_writer = csv.writer(self._csv_file)
             if needs_header:
                 self._csv_writer.writerow(
-                    ["timestamp", "experience", "task", "event_type", "widget_type",
-                     "object_name", "label", "detail", "delta_ms", "cursor_dist_px"]
+                    ["timestamp", "toolbar", "action_label"]
                 )
-            self._csv_writer.writerow([
-                datetime.now().isoformat(timespec="milliseconds"),
-                self._settings.get("experience", ""),
-                self._settings.get("task", ""),
-                "session_start", "", "", "", "", "", "",
-            ])
             self._csv_file.flush()
             self._recording = True
         except OSError as e:
@@ -114,38 +102,14 @@ class UXTracker(QObject):
             self._csv_file = None
             self._csv_writer = None
 
-    def _log(self, event_type: str, widget_type: str, object_name: str, label: str, detail: str = ""):
+    def _log(self, toolbar_name: str, label: str):
         if not self._recording or not self._csv_writer:
             return
-
-        now = datetime.now()
-        cursor_pos = QCursor.pos()
-
-        delta_ms = ""
-        if self._last_event_time is not None:
-            delta_ms = round((now - self._last_event_time).total_seconds() * 1000)
-
-        cursor_dist_px = ""
-        if self._last_cursor_pos is not None:
-            dx = cursor_pos.x() - self._last_cursor_pos.x()
-            dy = cursor_pos.y() - self._last_cursor_pos.y()
-            cursor_dist_px = round(math.sqrt(dx * dx + dy * dy))
-
-        self._last_event_time = now
-        self._last_cursor_pos = cursor_pos
-
         self._csv_writer.writerow(
             [
-                now.isoformat(timespec="milliseconds"),
-                self._settings.get("experience", ""),
-                self._settings.get("task", ""),
-                event_type,
-                widget_type,
-                object_name,
+                datetime.now().isoformat(timespec="milliseconds"),
+                toolbar_name,
                 label,
-                detail,
-                delta_ms,
-                cursor_dist_px,
             ]
         )
         self._csv_file.flush()
@@ -202,8 +166,6 @@ class UXTracker(QObject):
         mw = self.iface.mainWindow()
         for toolbar in mw.findChildren(QToolBar):
             self._connect_toolbar(toolbar)
-        for dock in mw.findChildren(QDockWidget):
-            self._connect_dock(dock)
 
     def _connect_toolbar(self, toolbar: QToolBar):
         toolbar_name = toolbar.objectName() or toolbar.windowTitle()
@@ -216,39 +178,11 @@ class UXTracker(QObject):
                 lambda checked, a=action, t=toolbar_name: self._on_action_triggered(a, t, checked)
             )
 
-    def _connect_dock(self, dock: QDockWidget):
-        uid = id(dock)
-        if uid in self._tracked_docks:
-            return
-        self._tracked_docks.add(uid)
-        dock.visibilityChanged.connect(
-            lambda visible, d=dock: self._on_dock_visibility(d, visible)
-        )
-
-    # ------------------------------------------------------------------
-    # Event handlers
-    # ------------------------------------------------------------------
-
     def _on_action_triggered(self, action: QAction, toolbar_name: str, checked: bool):
         label = action.text() or action.toolTip() or action.iconText() or ""
         # Strip any Qt accelerator markers (e.g. "&Open" -> "Open")
         label = label.replace("&", "")
-        self._log(
-            event_type="toolbar_action",
-            widget_type="QAction",
-            object_name=action.objectName() or "",
-            label=label,
-            detail=f"toolbar={toolbar_name} checked={checked}",
-        )
-
-    def _on_dock_visibility(self, dock: QDockWidget, visible: bool):
-        self._log(
-            event_type="panel_visibility",
-            widget_type="QDockWidget",
-            object_name=dock.objectName() or "",
-            label=dock.windowTitle() or "",
-            detail=f"visible={visible}",
-        )
+        self._log(toolbar_name=toolbar_name, label=label)
 
     # ------------------------------------------------------------------
     # Event filter – detect dynamically added toolbars / panels
@@ -264,5 +198,3 @@ class UXTracker(QObject):
     def _on_child_added(self, child: QObject):
         if isinstance(child, QToolBar):
             self._connect_toolbar(child)
-        elif isinstance(child, QDockWidget):
-            self._connect_dock(child)
