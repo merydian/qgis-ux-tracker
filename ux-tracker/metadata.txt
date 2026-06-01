@@ -1,10 +1,12 @@
 [general]
-name=Minimal
-description=Minimal plugin
-about=About this minimal plugin
-version=1.0
-qgisMinimumVersion=3.0
-author=Martin Dobias
-email=wonder.sk@gmail.com
-repository=URL to the code repository
-supportsQt6=True
+name=UX Tracker
+description=Tracks toolbar and panel interactions and writes them to a CSV log file
+about=Logs every toolbar action trigger and dock-panel visibility change to
+    <plugin dir>/ux_tracker.csv. Toolbar buttons are provided for settings
+    and CSV export.
+version=0.1.0
+qgisMinimumVersion=3.16
+qgisMaximumVersion=4.99
+author=Till
+email=
+repository=
