@@ -1,9 +1,8 @@
 [general]
 name=UX Tracker
-description=Tracks toolbar and panel interactions and writes them to a CSV log file
-about=Logs every toolbar action trigger and dock-panel visibility change to
-    <plugin dir>/ux_tracker.csv. Toolbar buttons are provided for settings
-    and CSV export.
+description=Tracks toolbar interactions and exports them to a CSV file
+about=Queues toolbar action triggers and exports them as CSV when requested.
+    Toolbar buttons are provided for settings and CSV export.
 version=0.1.0
 qgisMinimumVersion=3.16
 qgisMaximumVersion=4.99

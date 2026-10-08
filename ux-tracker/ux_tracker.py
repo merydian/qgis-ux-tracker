@@ -1,17 +1,16 @@
+from collections import deque
 import csv
 import os
-import shutil
 from datetime import datetime
 
 from qgis.PyQt.QtCore import QEvent, QObject, QTimer
-from qgis.PyQt.QtWidgets import QAction, QFileDialog, QMessageBox, QToolBar
+from qgis.PyQt.QtWidgets import QAction, QMessageBox, QToolBar
 
 from .settings_dialog import SettingsDialog, load_settings, save_settings
 
 
 class UXTracker(QObject):
-    """QGIS plugin that logs every toolbar-action trigger and panel
-    visibility change to a CSV file in the plugin's data directory."""
+    """QGIS plugin that queues toolbar-action triggers for CSV export."""
 
     def __init__(self, iface):
         super().__init__()
@@ -25,11 +24,10 @@ class UXTracker(QObject):
 
         self._settings = load_settings(self.settings_path)
         self._tracked_actions: set = set()
-        self._csv_file = None
-        self._csv_writer = None
-        self._recording = False
+        self._recording = True
         self._settings_action: QAction = None
         self._export_action: QAction = None
+        self.click_deque: deque = deque()
 
     # ------------------------------------------------------------------
     # Plugin lifecycle
@@ -46,8 +44,6 @@ class UXTracker(QObject):
         self._export_action.triggered.connect(self._export_log)
         self.iface.addToolBarIcon(self._export_action)
 
-        self._open_log()
-
         # Connect to widgets that already exist; defer so all plugins
         # have had a chance to add their own toolbars and panels.
         QTimer.singleShot(500, self._connect_all)
@@ -57,94 +53,50 @@ class UXTracker(QObject):
 
         if self._recording:
             self.iface.messageBar().pushInfo(
-                "UX Tracker", f"Recording to {self.log_path}"
+                "UX Tracker", f":Recording" if self._recording else f":Not Recording"
             )
 
     def unload(self):
         self.iface.mainWindow().removeEventFilter(self)
+        self._export_log()
         if self._settings_action:
             self.iface.removeToolBarIcon(self._settings_action)
             del self._settings_action
         if self._export_action:
             self.iface.removeToolBarIcon(self._export_action)
             del self._export_action
-        self._close_log()
+        self._recording = False
 
     # ------------------------------------------------------------------
     # Log file helpers
     # ------------------------------------------------------------------
 
-    def _open_log(self):
-        if self._csv_file:
-            return
-        try:
-            needs_header = not os.path.exists(self.log_path) or os.path.getsize(self.log_path) == 0
-            self._csv_file = open(self.log_path, "a", newline="", encoding="utf-8")
-            self._csv_writer = csv.writer(self._csv_file)
-            if needs_header:
-                self._csv_writer.writerow(
-                    ["timestamp", "toolbar", "action_label"]
-                )
-            self._csv_file.flush()
-            self._recording = True
-        except OSError as e:
-            self._recording = False
-            try:
-                from qgis.core import QgsMessageLog, Qgis
-                QgsMessageLog.logMessage(f"UX Tracker: could not open log file: {e}", "UX Tracker", Qgis.MessageLevel.Critical)
-            except Exception:
-                pass
+    def _export_log(self):
 
-    def _close_log(self):
-        self._recording = False
-        if self._csv_file:
-            self._csv_file.close()
-            self._csv_file = None
-            self._csv_writer = None
+        try:
+            with open(self.log_path, "w", newline="", encoding="utf-8") as csv_file:
+                writer = csv.writer(csv_file)
+                writer.writerow(["timestamp", "toolbar", "action_label"])
+                writer.writerows(self.click_deque)
+        except OSError as error:
+            QMessageBox.critical(
+                self.iface.mainWindow(),
+                "UX Tracker",
+                f"Could not export log:\n{error}",
+            )
+            return
 
     def _log(self, toolbar_name: str, label: str):
-        if not self._recording or not self._csv_writer:
+        if not self._recording:
             return
-        self._csv_writer.writerow(
+        print(f"Logging action: toolbar={toolbar_name}, label={label}")
+        print(f"Current click deque: {self.click_deque}")
+        self.click_deque.append(
             [
                 datetime.now().isoformat(timespec="milliseconds"),
                 toolbar_name,
                 label,
             ]
-        )
-        self._csv_file.flush()
-
-    # ------------------------------------------------------------------
-    # Export
-    # ------------------------------------------------------------------
-
-    def _export_log(self):
-        if not os.path.exists(self.log_path):
-            QMessageBox.warning(
-                self.iface.mainWindow(),
-                "UX Tracker",
-                "No log file found yet. Interact with QGIS first to generate data.",
-            )
-            return
-
-        dest, _ = QFileDialog.getSaveFileName(
-            self.iface.mainWindow(),
-            "Export UX Tracker log",
-            os.path.expanduser("~/ux_tracker.csv"),
-            "CSV files (*.csv)",
-        )
-        if not dest:
-            return
-
-        # Flush so the copy contains the latest rows.
-        if self._csv_file:
-            self._csv_file.flush()
-
-        shutil.copy2(self.log_path, dest)
-        QMessageBox.information(
-            self.iface.mainWindow(),
-            "UX Tracker",
-            f"Log exported to:\n{dest}",
         )
 
     # ------------------------------------------------------------------
@@ -177,6 +129,7 @@ class UXTracker(QObject):
             action.triggered.connect(
                 lambda checked, a=action, t=toolbar_name: self._on_action_triggered(a, t, checked)
             )
+            print(f"Connected action: toolbar={toolbar_name}, action={action.text() or action.toolTip() or action.iconText() or ''}")   
 
     def _on_action_triggered(self, action: QAction, toolbar_name: str, checked: bool):
         label = action.text() or action.toolTip() or action.iconText() or ""
