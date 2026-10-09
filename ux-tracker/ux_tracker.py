@@ -72,3 +72,11 @@ class UXTracker(QObject):
         # Strip any Qt accelerator markers (e.g. "&Open" -> "Open")
         label_name = label_name.replace("&", "")
         self._log(toolbar_name=toolbar_name, label=label_name)
+
+    def _disconnect_all(self):
+        for toolbar, slot in self._connected_toolbars.items():
+            try:
+                toolbar.actionTriggered.disconnect(slot)
+            except (RuntimeError, TypeError):
+                pass  # toolbar already deleted or disconnected
+        self._connected_toolbars.clear()
