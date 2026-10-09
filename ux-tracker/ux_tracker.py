@@ -48,7 +48,7 @@ class UXTracker(QObject):
 
         if self._recording:
             self.iface.messageBar().pushInfo(
-                "UX Tracker", ":Recording" if self._recording else ":Not Recording"
+                "UX Tracker", "Recording" if self._recording else "Not Recording"
             )
 
     def unload(self):
