@@ -73,13 +73,3 @@ class UXTracker(QObject):
         # Strip any Qt accelerator markers (e.g. "&Open" -> "Open")
         label_name = label_name.replace("&", "")
         self._log(toolbar_name=toolbar_name, label=label_name)
-
-    def eventFilter(self, _watched: QObject, event: QEvent) -> bool:
-        if event.type() == QEvent.Type.ChildAdded:
-            # Defer so the child is fully constructed before inspecting it.
-            QTimer.singleShot(0, lambda c=event.child(): self._on_child_added(c))
-        return False  # never consume the event
-
-    def _on_child_added(self, child: QObject):
-        if isinstance(child, QToolBar):
-            self._connect_toolbar(child)
