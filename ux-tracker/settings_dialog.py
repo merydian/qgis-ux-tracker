@@ -6,11 +6,9 @@ from qgis.PyQt.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QGroupBox,
-    QLabel,
     QRadioButton,
     QVBoxLayout,
 )
-
 
 EXPERIENCE_LEVELS = ["Beginner", "Intermediate", "Advanced"]
 TASKS = ["Digitize", "View data", "Analyse data"]

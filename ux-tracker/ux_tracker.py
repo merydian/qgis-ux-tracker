@@ -1,6 +1,6 @@
-from collections import deque
 import csv
 import os
+from collections import deque
 from datetime import datetime
 
 from qgis.PyQt.QtCore import QEvent, QObject, QTimer
@@ -39,11 +39,6 @@ class UXTracker(QObject):
         self._settings_action.triggered.connect(self._open_settings_dialog)
         self.iface.addToolBarIcon(self._settings_action)
 
-        self._export_action = QAction("UX Tracker Export", self.iface.mainWindow())
-        self._export_action.setToolTip("UX Tracker – export log CSV")
-        self._export_action.triggered.connect(self._export_log)
-        self.iface.addToolBarIcon(self._export_action)
-
         # Connect to widgets that already exist; defer so all plugins
         # have had a chance to add their own toolbars and panels.
         QTimer.singleShot(500, self._connect_all)
@@ -53,7 +48,7 @@ class UXTracker(QObject):
 
         if self._recording:
             self.iface.messageBar().pushInfo(
-                "UX Tracker", f":Recording" if self._recording else f":Not Recording"
+                "UX Tracker", ":Recording" if self._recording else ":Not Recording"
             )
 
     def unload(self):
@@ -66,10 +61,6 @@ class UXTracker(QObject):
             self.iface.removeToolBarIcon(self._export_action)
             del self._export_action
         self._recording = False
-
-    # ------------------------------------------------------------------
-    # Log file helpers
-    # ------------------------------------------------------------------
 
     def _export_log(self):
 
@@ -89,19 +80,14 @@ class UXTracker(QObject):
     def _log(self, toolbar_name: str, label: str):
         if not self._recording:
             return
-        print(f"Logging action: toolbar={toolbar_name}, label={label}")
-        print(f"Current click deque: {self.click_deque}")
+        
         self.click_deque.append(
             [
-                datetime.now().isoformat(timespec="milliseconds"),
+                datetime.now(datetime.timezone.utc).isoformat(timespec="milliseconds"),
                 toolbar_name,
                 label,
             ]
         )
-
-    # ------------------------------------------------------------------
-    # Settings dialog
-    # ------------------------------------------------------------------
 
     def _open_settings_dialog(self):
         dlg = SettingsDialog(self._settings, parent=self.iface.mainWindow())
@@ -109,10 +95,6 @@ class UXTracker(QObject):
             self._settings["experience"] = dlg.selected_experience()
             self._settings["task"] = dlg.selected_task()
             save_settings(self.settings_path, self._settings)
-
-    # ------------------------------------------------------------------
-    # Connect to existing widgets
-    # ------------------------------------------------------------------
 
     def _connect_all(self):
         mw = self.iface.mainWindow()
@@ -129,17 +111,12 @@ class UXTracker(QObject):
             action.triggered.connect(
                 lambda checked, a=action, t=toolbar_name: self._on_action_triggered(a, t, checked)
             )
-            print(f"Connected action: toolbar={toolbar_name}, action={action.text() or action.toolTip() or action.iconText() or ''}")   
 
     def _on_action_triggered(self, action: QAction, toolbar_name: str, checked: bool):
         label = action.text() or action.toolTip() or action.iconText() or ""
         # Strip any Qt accelerator markers (e.g. "&Open" -> "Open")
         label = label.replace("&", "")
         self._log(toolbar_name=toolbar_name, label=label)
-
-    # ------------------------------------------------------------------
-    # Event filter – detect dynamically added toolbars / panels
-    # ------------------------------------------------------------------
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
         if event.type() == QEvent.Type.ChildAdded:
