@@ -2,15 +2,16 @@ import csv
 import os
 from datetime import datetime, timezone
 
-from qgis.PyQt.QtCore import QEvent, QObject, QTimer
+from qgis.PyQt.QtCore import QObject
 from qgis.PyQt.QtWidgets import QAction, QMessageBox, QToolBar
+
 
 class UXTracker(QObject):
     def __init__(self, iface):
         super().__init__()
         self.iface = iface
         self._connected_toolbars: dict = {}
-        self.click_list: list = list()
+        self.click_list: list = []
 
     def initGui(self):
         # At QGIS startup most toolbars don't exist yet; pick them up once
