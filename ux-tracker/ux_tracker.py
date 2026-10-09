@@ -11,7 +11,8 @@ class UXTracker(QObject):
         super().__init__()
         self.iface = iface
         self._connected_toolbars: dict = {}
-        self.click_list: list = []
+        self.click_list: list[tuple[str, str, str]] = []
+        self.max_clicks: int = 100
 
     def initGui(self):
         # At QGIS startup most toolbars don't exist yet; pick them up once
@@ -23,7 +24,6 @@ class UXTracker(QObject):
         self.iface.initializationCompleted.disconnect(self._connect_all)
         self.iface.mainWindow().removeEventFilter(self)
         self._disconnect_all()
-        self._export_log()
 
     def _export_log(self):
         base_dir = os.path.join(os.path.dirname(__file__), "data")
@@ -51,6 +51,9 @@ class UXTracker(QObject):
                 label,
             ]
         )
+        if len(self.click_list) >= self.max_clicks:
+            self._export_log()
+            self.click_list.clear()
 
     def _connect_all(self):
         for toolbar in self.iface.mainWindow().findChildren(QToolBar):
