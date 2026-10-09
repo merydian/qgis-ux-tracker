@@ -13,7 +13,6 @@ class UXTracker(QObject):
         self.click_list: list = list()
 
     def initGui(self):
-        self._connect_all()
         # At QGIS startup most toolbars don't exist yet; pick them up once
         # initialization finishes and whenever one is added later.
         self.iface.initializationCompleted.connect(self._connect_all)
