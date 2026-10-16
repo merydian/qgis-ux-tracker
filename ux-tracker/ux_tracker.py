@@ -27,10 +27,8 @@ class UXTracker(QObject):
 
     def initGui(self):
         self.iface.initializationCompleted.connect(self._connect_all)
-        self.iface.mainWindow().installEventFilter(self)
 
     def unload(self):
-        self.iface.mainWindow().removeEventFilter(self)
         self._disconnect_all()
 
     def _export_log(self):
