@@ -3,9 +3,9 @@ import uuid
 import json
 from datetime import datetime, timezone
 
-from qgis.core import QgsSettings, Qgis
-from qgis.PyQt.QtCore import QObject
-from qgis.PyQt.QtWidgets import QAction, QToolBar
+from qgis.core import QgsSettings, Qgis, QgsApplication
+from qgis.PyQt.QtCore import QObject, QEvent
+from qgis.PyQt.QtWidgets import QAction, QToolBar, QWidget
 
 
 class UXTracker(QObject):
@@ -26,10 +26,10 @@ class UXTracker(QObject):
         return str(user_id)
 
     def initGui(self):
-        self.iface.initializationCompleted.connect(self._connect_all)
+        QgsApplication.instance().installEventFilter(self)
 
     def unload(self):
-        self._disconnect_all()
+        QgsApplication.instance().removeEventFilter(self)
 
     def _export_log(self):
         base_dir = os.path.join(os.path.dirname(__file__), "data")
@@ -55,31 +55,12 @@ class UXTracker(QObject):
             self._export_log()
             self.click_list.clear()
 
-    def _connect_all(self):
-        for toolbar in self.iface.mainWindow().findChildren(QToolBar):
-            self._connect_toolbar(toolbar)
-
-    def _connect_toolbar(self, toolbar: QToolBar):
-        if toolbar in self._connected_toolbars:
-            return
-        toolbar_name = toolbar.objectName()
-
-        def slot(action: QAction, t=toolbar_name):
-            self._on_action_triggered(action, t)
-
-        # actionTriggered covers actions added to the toolbar later as well.
-        toolbar.actionTriggered.connect(slot)
-        self._connected_toolbars[toolbar] = slot
-
-    def _on_action_triggered(self, action: QAction, toolbar_name: str):
-        label_name = action.objectName()
-        label_name = label_name.replace("&", "")
-        self._log(toolbar_name=toolbar_name, label=label_name)
-
-    def _disconnect_all(self):
-        for toolbar, slot in self._connected_toolbars.items():
+    def eventFilter(self, obj, event) -> bool:
+        if event.type() == QEvent.Type.MouseButtonRelease:
             try:
-                toolbar.actionTriggered.disconnect(slot)
-            except (RuntimeError, TypeError):
-                pass
-        self._connected_toolbars.clear()
+                if isinstance(obj.parent(), QToolBar):
+                    print((obj.parent().objectName(), obj.defaultAction().objectName()))
+                    self._log(obj.parent().objectName(), obj.defaultAction().objectName())
+            except Exception:
+                return False
+        return False
