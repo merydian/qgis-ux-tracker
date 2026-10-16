@@ -30,7 +30,6 @@ class UXTracker(QObject):
         self.iface.mainWindow().installEventFilter(self)
 
     def unload(self):
-        self._disconnect_all()
         self.iface.mainWindow().removeEventFilter(self)
         self._disconnect_all()
 
