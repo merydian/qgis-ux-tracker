@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from qgis.core import QgsSettings, Qgis, QgsApplication
 from qgis.PyQt.QtCore import QObject, QEvent
-from qgis.PyQt.QtWidgets import QAction, QToolBar, QWidget
+from qgis.PyQt.QtWidgets import QToolBar
 
 
 class UXTracker(QObject):
@@ -37,10 +37,12 @@ class UXTracker(QObject):
         self.log_path = os.path.join(base_dir, "ux_tracker.json")
 
         try:
-            with open(self.log_path, 'w') as f:
+            with open(self.log_path, "w") as f:
                 json.dump({self.user_id: self.click_list}, f)
         except OSError:
-            self.iface.messageBar().pushMessage("UX Tracker", "Failed to write json file.", Qgis.MessageLevel.Critical)
+            self.iface.messageBar().pushMessage(
+                "UX Tracker", "Failed to write json file.", Qgis.MessageLevel.Critical
+            )
             return
 
     def _log(self, toolbar_name: str, label: str):
@@ -60,7 +62,9 @@ class UXTracker(QObject):
             try:
                 if isinstance(obj.parent(), QToolBar):
                     print((obj.parent().objectName(), obj.defaultAction().objectName()))
-                    self._log(obj.parent().objectName(), obj.defaultAction().objectName())
+                    self._log(
+                        obj.parent().objectName(), obj.defaultAction().objectName()
+                    )
             except Exception:
                 return False
         return False
