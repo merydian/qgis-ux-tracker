@@ -1,11 +1,11 @@
-import csv
 import os
 import uuid
 import json
 from datetime import datetime, timezone
 
-from qgis.PyQt.QtCore import QObject, QSettings
-from qgis.PyQt.QtWidgets import QAction, QMessageBox, QToolBar
+from qgis.core import QgsSettings, Qgis
+from qgis.PyQt.QtCore import QObject
+from qgis.PyQt.QtWidgets import QAction, QToolBar
 
 
 class UXTracker(QObject):
@@ -17,12 +17,11 @@ class UXTracker(QObject):
         self.max_clicks: int = 10
         self.user_id: str = self._get_or_create_user_id()
 
-    @staticmethod
-    def _get_or_create_user_id() -> str:
-        settings = QSettings()
+    def _get_or_create_user_id(self) -> str:
+        settings = QgsSettings()
         user_id = settings.value("ux_tracker/uuid")
         if not user_id:
-            user_id = str(uuid.uuid2())
+            user_id = str(uuid.uuid1())
             settings.setValue("ux_tracker/uuid", user_id)
         return str(user_id)
 
@@ -31,7 +30,7 @@ class UXTracker(QObject):
         self.iface.mainWindow().installEventFilter(self)
 
     def unload(self):
-        self.iface.initializationCompleted.disconnect(self._connect_all)
+        self._disconnect_all()
         self.iface.mainWindow().removeEventFilter(self)
         self._disconnect_all()
 
@@ -43,12 +42,8 @@ class UXTracker(QObject):
         try:
             with open(self.log_path, 'w') as f:
                 json.dump({self.user_id: self.click_list}, f)
-        except OSError as error:
-            QMessageBox.critical(
-                self.iface.mainWindow(),
-                "UX Tracker",
-                f"Could not export log:\n{error}",
-            )
+        except OSError:
+            self.iface.messageBar().pushMessage("UX Tracker", "Failed to write json file.", Qgis.MessageLevel.Critical)
             return
 
     def _log(self, toolbar_name: str, label: str):
