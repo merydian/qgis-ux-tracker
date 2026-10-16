@@ -1,8 +1,9 @@
 import csv
 import os
+import uuid
 from datetime import datetime, timezone
 
-from qgis.PyQt.QtCore import QObject
+from qgis.PyQt.QtCore import QObject, QSettings
 from qgis.PyQt.QtWidgets import QAction, QMessageBox, QToolBar
 
 
@@ -11,8 +12,18 @@ class UXTracker(QObject):
         super().__init__()
         self.iface = iface
         self._connected_toolbars: dict = {}
-        self.click_list: list[tuple[str, str, str]] = []
-        self.max_clicks: int = 100
+        self.click_list: list[list[str]] = []
+        self.max_clicks: int = 10
+        self.user_id: str = self._get_or_create_user_id()
+
+    @staticmethod
+    def _get_or_create_user_id() -> str:
+        settings = QSettings()
+        user_id = settings.value("ux_tracker/uuid")
+        if not user_id:
+            user_id = str(uuid.uuid2())
+            settings.setValue("ux_tracker/uuid", user_id)
+        return str(user_id)
 
     def initGui(self):
         # At QGIS startup most toolbars don't exist yet; pick them up once
@@ -33,7 +44,7 @@ class UXTracker(QObject):
         try:
             with open(self.log_path, "w", newline="", encoding="utf-8") as csv_file:
                 writer = csv.writer(csv_file)
-                writer.writerow(["timestamp", "toolbar", "action_label"])
+                writer.writerow(["user_id", "timestamp", "toolbar", "action_label"])
                 writer.writerows(self.click_list)
         except OSError as error:
             QMessageBox.critical(
@@ -46,6 +57,7 @@ class UXTracker(QObject):
     def _log(self, toolbar_name: str, label: str):
         self.click_list.append(
             [
+                self.user_id,
                 datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
                 toolbar_name,
                 label,
