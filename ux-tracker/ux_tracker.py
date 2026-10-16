@@ -1,6 +1,7 @@
 import csv
 import os
 import uuid
+import json
 from datetime import datetime, timezone
 
 from qgis.PyQt.QtCore import QObject, QSettings
@@ -26,8 +27,6 @@ class UXTracker(QObject):
         return str(user_id)
 
     def initGui(self):
-        # At QGIS startup most toolbars don't exist yet; pick them up once
-        # initialization finishes and whenever one is added later.
         self.iface.initializationCompleted.connect(self._connect_all)
         self.iface.mainWindow().installEventFilter(self)
 
@@ -39,13 +38,12 @@ class UXTracker(QObject):
     def _export_log(self):
         base_dir = os.path.join(os.path.dirname(__file__), "data")
         os.makedirs(base_dir, exist_ok=True)
-        self.log_path = os.path.join(base_dir, "ux_tracker.csv")
+        self.log_path = os.path.join(base_dir, "ux_tracker.json")
 
         try:
-            with open(self.log_path, "w", newline="", encoding="utf-8") as csv_file:
-                writer = csv.writer(csv_file)
-                writer.writerow(["user_id", "timestamp", "toolbar", "action_label"])
-                writer.writerows(self.click_list)
+            with open(self.log_path, 'w') as f:
+                json.dump({self.user_id: self.click_list}, f)
+            print("exported")
         except OSError as error:
             QMessageBox.critical(
                 self.iface.mainWindow(),
@@ -57,7 +55,6 @@ class UXTracker(QObject):
     def _log(self, toolbar_name: str, label: str):
         self.click_list.append(
             [
-                self.user_id,
                 datetime.now(timezone.utc).isoformat(timespec="milliseconds"),
                 toolbar_name,
                 label,
@@ -85,7 +82,6 @@ class UXTracker(QObject):
 
     def _on_action_triggered(self, action: QAction, toolbar_name: str):
         label_name = action.objectName()
-        # Strip any Qt accelerator markers (e.g. "&Open" -> "Open")
         label_name = label_name.replace("&", "")
         self._log(toolbar_name=toolbar_name, label=label_name)
 
@@ -94,5 +90,5 @@ class UXTracker(QObject):
             try:
                 toolbar.actionTriggered.disconnect(slot)
             except (RuntimeError, TypeError):
-                pass  # toolbar already deleted or disconnected
+                pass
         self._connected_toolbars.clear()
