@@ -43,7 +43,6 @@ class UXTracker(QObject):
         try:
             with open(self.log_path, 'w') as f:
                 json.dump({self.user_id: self.click_list}, f)
-            print("exported")
         except OSError as error:
             QMessageBox.critical(
                 self.iface.mainWindow(),
